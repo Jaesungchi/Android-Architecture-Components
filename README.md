@@ -4,6 +4,7 @@ Android Architecture Components를 이해하기 위해 스스로 공부한 것�
 
 - [모바일 앱 사용자 환경](https://github.com/Jaesungchi/Android-Architecture-Components#모바일-앱-사용자-환경)
 - [일반 아키텍처 원칙](https://github.com/Jaesungchi/Android-Architecture-Components#일반-아키텍처-원칙)
+- [권장 앱 아키텍처](https://github.com/Jaesungchi/Android-Architecture-Components#권장-앱-아키텍처)
 
 ## 모바일 앱 사용자 환경
 
@@ -25,7 +26,73 @@ Android Architecture Components를 이해하기 위해 스스로 공부한 것�
 
   가급적 지속적인 모델에서 UI를 만들어야 합니다. 모델은 앱의 데이터 처리를 담당하는 구성요소로, 앱의 View 객체 및 앱 구성요소와 독립되어 있어 앱의 수명 주기 및 관려 문제의 영향을 받지 않습니다. 지속 모델이 이상적인 이유는 운영체제에서 Resource확보를 위해 앱을 제거해도 사용자 데이터가 삭제되지 않고, 네트워크 연결이 취약하거나 연결되지 않아도 앱이 계속 작동하기때문입니다.
 
+## 권장 앱 아키텍처
 
+![img](https://developer.android.com/topic/libraries/architecture/images/final-architecture.png)
+
+각 구성요소가 한 수준 아래의 구성요소에만 종속됩니다. 이것이 제일 중요합니다.
+
+이 설계는 사용자가 앱을 마지막으로 닫은 시점과 상관없이 앱이 로컬에 보존하는 사용자의 정보가 표시됩니다.
+
+- **사용자 인터페이스 제작**
+
+  예시 프로젝트의 UI는 Fragment와 xml 파일로 제작 됩니다.(UserProfileFragment,user_profile_layout.xml)
+
+  UI를 만들기 위해선 데이터모델에 다음과 같은 요소가 있습니다.
+
+  - 사용자 ID : 사용자의 식별자로, 프래그먼트 인수를 이용하여 이 정보를 프래그먼트에 전달합니다. 운영체제에서 프로세스를 제거해도 이 정보가 유지되므로, 앱을 다시 시작할때 ID를 사용할 수 있습니다.
+  - 사용자 객체 : 사용자에 관한 세부 정보를 보유하는 데이터 클래스입니다.
+
+  ViewModel 아키텍처 구성요소에 기반한 ViewModel을 사용하여 이 정보를 유지합니다.
+
+  **ViewModel은 프래그먼트나 Activity같은 특정 UI 구성요소에 관한 데이터를 제공하고 모델과 커뮤니케이션하기 위한 데이터 처리 비즈니스 로직을 포함하고 있습니다. 따라서 ViewModel은 UI 구성요소에 관해 알지 못하므로 구성 변경의 영향을 받지 않는다.**
+
+  - user_profile_layout.xml : 화면의 UI 레이아웃 정의
+  - UserProfileFragment : 데이터를 표시하는 UI컨트롤러
+  - UserProfileViewModel : Fragment에서 볼 수 있도록 데이터를 준비하고 사용자 상호작용에 반응하는 클래스.
+
+  ```kotlin
+  class UserProfileViewModel : ViewModel(){
+  	val userId : String = TODO()
+  	val user : User = TODO()
+  }
+  ```
+
+  ```kotlin
+  class UserProfileFragment : Fragment(){
+      private val viewModel : UserProfileViewModel by viewModels()
+      override fun onCreateView(
+          inflter : LayoutInflater, container : ViewGroup?, savedInstanceState : Bundle?) : View{
+          return inflater.inflate(R.layout.main_fragment,container,false)
+      }
+  }
+  ```
+
+  이러한 코드 모듈로 구성되는데 이 모듈을 연결하기 위해서는 UserProfileViewModel 클래스에서 user 필드가 생성되면 UI에게 알려주는 방법이 필요합니다.
+
+  user를 가져오려면 ViewModel에서 프래그먼트 인수에 액세스 해야합니다. 프래그먼트에서 인수를 전달할 수 있고, 더 나은 방법으로는 **SavedState모듈을 사용해 ViewModel에서 직접 인수를 읽도록 할 수 있습니다.**
+
+  ```kotlin
+  // UserProfileViewModel
+      class UserProfileViewModel(
+         savedStateHandle: SavedStateHandle
+      ) : ViewModel() {
+         val userId : String = savedStateHandle["uid"] ?:
+                throw IllegalArgumentException("missing user id")
+         val user : User = TODO()
+      }
+  
+      // UserProfileFragment
+      private val viewModel: UserProfileViewModel by viewModels(
+         factoryProducer = { SavedStateVMFactory(this) }
+         ...
+      )
+      
+  ```
+
+  이제 사용자 객체가 확보되면 프래그먼트에 알려야합니다. 이때에는 LiveData 가 사용됩니다.
+
+  
 
 ---
 
