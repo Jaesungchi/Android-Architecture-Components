@@ -45,7 +45,7 @@ Android Architecture Components를 이해하기 위해 스스로 공부한 것�
 
   ViewModel 아키텍처 구성요소에 기반한 ViewModel을 사용하여 이 정보를 유지합니다.
 
-  **ViewModel은 프래그먼트나 Activity같은 특정 UI 구성요소에 관한 데이터를 제공하고 모델과 커뮤니케이션하기 위한 데이터 처리 비즈니스 로직을 포함하고 있습니다. 따라서 ViewModel은 UI 구성요소에 관해 알지 못하므로 구성 변경의 영향을 받지 않는다.**
+  > **ViewModel은 프래그먼트나 Activity같은 특정 UI 구성요소에 관한 데이터를 제공하고 모델과 커뮤니케이션하기 위한 데이터 처리 비즈니스 로직을 포함하고 있습니다. 따라서 ViewModel은 UI 구성요소에 관해 알지 못하므로 구성 변경의 영향을 받지 않는다.**
 
   - user_profile_layout.xml : 화면의 UI 레이아웃 정의
   - UserProfileFragment : 데이터를 표시하는 UI컨트롤러
@@ -63,7 +63,7 @@ Android Architecture Components를 이해하기 위해 스스로 공부한 것�
       private val viewModel : UserProfileViewModel by viewModels()
       override fun onCreateView(
           inflter : LayoutInflater, container : ViewGroup?, savedInstanceState : Bundle?) : View{
-          return inflater.inflate(R.layout.main_fragment,container,false)
+          return inflter.inflate(R.layout.main_fragment,container,false)
       }
   }
   ```
@@ -84,7 +84,7 @@ Android Architecture Components를 이해하기 위해 스스로 공부한 것�
   
       // UserProfileFragment
       private val viewModel: UserProfileViewModel by viewModels(
-         factoryProducer = { SavedStateVMFactory(this) }
+         factoryProducer = { SavedStateViewModelFactory(getApplication(),this) }
          ...
       )
       
@@ -92,6 +92,35 @@ Android Architecture Components를 이해하기 위해 스스로 공부한 것�
 
   이제 사용자 객체가 확보되면 프래그먼트에 알려야합니다. 이때에는 LiveData 가 사용됩니다.
 
+  > **LiveData**는 식별 가능한 데이터 홀더 입니다. 앱의 다른 구성요소에서는 이 홀더를 사용해 상호 간 명시적이고 엄격한 종속성 경로를 만들지 않고도 객체 변경사항을 모니터링 할 수 있습니다. 또한 LiveData 구성요소는 Activity, Fragment, Service와 같은 앱 구성요소의 수명 주기를 고려하고 객체 유출과 과한 메모리 소비를 방지하기 위한 정리 로직을 포함하기 때문입니다.
+
+  LiveData 구성요소를 앱에 통합하기 위해 UserProfileViewModel의 필드유형을 LiveData<User>로 변경합니다. 이제 데이터가 업데이트 되면 UserProfileFragment에 정보가 전달됩니다. 또한 LiveData필드는 수명 주기를 인식하기 때문에 더 이상 필요하지 않은 참조를 자동으로 정리합니다.
+  
+  UserProfileViewModel
+  
+  ```kotlin
+  class UserProfileViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
+         val userId : String = savedStateHandle["uid"] ?:
+                throw IllegalArgumentException("missing user id")
+         val user : LiveData<User> = TODO()
+      }
+  ```
+  
+  UserProfileFragment
+  
+  ```kotlin
+  override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+      super.onViewCreated(view, savedInstanceState)
+      viewModel.user.observe(viewLifecycleOwner){
+          //Update UI
+      }
+  }
+  ```
+  
+  이제 사용자 프로필 데이터가 업데이트 될때맏 onChanged() 콜백이 호출되고 UI가 새로고침 됩니다.
+  
+  여기서 onStop()을 재정의 하지 않은 것은, LiveData는 수명 주기를 인식하기 때문에 LiveData의 경우 이 단계가 필요 없습니다.
+  
   
 
 ---
